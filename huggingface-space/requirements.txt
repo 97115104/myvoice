@@ -1,0 +1,5 @@
+TTS>=0.22.0
+torch>=2.0.0
+torchaudio>=2.0.0
+gradio>=4.0.0
+pydub>=0.25.0

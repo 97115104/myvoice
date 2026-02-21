@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Voice - Voice Cloning & Text-to-Speech</title>
+    <meta name="description" content="Free, serverless voice cloning and text-to-speech tool. Clone any voice and generate speech from text.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2327ae60'/><text x='50' y='68' font-family='Arial,sans-serif' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>MV</text></svg>">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <main class="container">
+        <h1>My Voice</h1>
+        <p class="subtitle">Clone any voice. Generate speech from text.</p>
+        
+        <div class="how-to-use-row">
+            <button id="btn-info" class="btn-how-to-use">How to use</button>
+            <span class="how-to-divider">·</span>
+            <button id="btn-setup" class="btn-how-to-use">Host your own</button>
+        </div>
+
+        <!-- Step 1: Voice Input -->
+        <section class="section">
+            <h3>1. Provide Voice Sample</h3>
+            <p class="section-hint">Upload an audio file or record your voice (10-30 seconds recommended)</p>
+            
+            <div class="voice-input-options">
+                <div class="option-card">
+                    <label for="voice-file" class="btn-upload">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <span>Upload Audio File</span>
+                        <input type="file" id="voice-file" accept="audio/*" hidden>
+                    </label>
+                    <span id="file-name" class="file-name">No file selected</span>
+                </div>
+                
+                <div class="option-divider">or</div>
+                
+                <div class="option-card">
+                    <button id="btn-record" class="btn-record">
+                        <svg id="record-icon" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                        <svg id="stop-icon" class="icon hidden" viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="6" y="6" width="12" height="12" rx="2"/>
+                        </svg>
+                        <span id="record-text">Record Voice</span>
+                    </button>
+                    <span id="record-status" class="record-status"></span>
+                </div>
+            </div>
+            
+            <div id="audio-preview" class="audio-preview hidden">
+                <audio id="voice-audio" controls></audio>
+                <button id="btn-clear-audio" class="btn-clear">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Clear
+                </button>
+            </div>
+        </section>
+
+        <hr class="section-divider">
+
+        <!-- Step 2: Text Input -->
+        <section class="section">
+            <h3>2. Enter Text to Speak</h3>
+            <p class="section-hint">Enter text directly or fetch from a URL</p>
+            
+            <div class="text-input-tabs">
+                <button class="text-tab-btn active" data-tab="text">Text</button>
+                <button class="text-tab-btn" data-tab="url">From URL</button>
+            </div>
+            
+            <div id="text-panel" class="text-panel active" data-tab="text">
+                <textarea id="text-input" placeholder="Enter the text you want to convert to speech..."></textarea>
+                <div class="char-count"><span id="char-count">0</span> characters</div>
+            </div>
+            
+            <div id="url-panel" class="text-panel" data-tab="url">
+                <div class="url-input-row">
+                    <input type="url" id="url-input" placeholder="https://example.com/article">
+                    <button id="btn-fetch-url" class="btn-fetch">
+                        <span id="fetch-text">Fetch</span>
+                    </button>
+                </div>
+                <div id="url-status" class="url-status"></div>
+            </div>
+        </section>
+
+        <hr class="section-divider">
+
+        <!-- Step 3: Generate -->
+        <section class="section">
+            <h3>3. Generate Speech</h3>
+            
+            <div class="settings-row">
+                <div class="setting-inline">
+                    <label for="language-select">Language</label>
+                    <select id="language-select">
+                        <option value="en" selected>English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="pl">Polish</option>
+                        <option value="tr">Turkish</option>
+                        <option value="ru">Russian</option>
+                        <option value="nl">Dutch</option>
+                        <option value="cs">Czech</option>
+                        <option value="ar">Arabic</option>
+                        <option value="zh">Chinese</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="hi">Hindi</option>
+                    </select>
+                </div>
+                <div class="setting-inline">
+                    <label for="speed-slider">Speed</label>
+                    <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1">
+                    <span id="speed-value">1.0x</span>
+                </div>
+            </div>
+            
+            <button id="btn-generate" class="btn-primary" disabled>
+                <svg id="generate-icon" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                <span id="generate-text">Generate Speech</span>
+                <svg id="generate-spinner" class="spinner hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"/>
+                </svg>
+            </button>
+            
+            <div id="progress-container" class="progress-container hidden">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <span id="progress-text" class="progress-text">Processing...</span>
+            </div>
+        </section>
+
+        <hr class="section-divider">
+
+        <!-- Output Section -->
+        <section id="output-section" class="section output-section hidden">
+            <h3>Generated Audio</h3>
+            <audio id="output-audio" controls></audio>
+            <div class="output-actions">
+                <button id="btn-download" class="btn-download">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download MP3
+                </button>
+                <button id="btn-share" class="btn-share">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="18" cy="5" r="3"/>
+                        <circle cx="6" cy="12" r="3"/>
+                        <circle cx="18" cy="19" r="3"/>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                    Share Link
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Server Configuration -->
+    <aside id="settings-panel" class="settings-panel">
+        <button id="btn-toggle-settings" class="btn-toggle-settings">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Settings
+        </button>
+        <div id="settings-content" class="settings-content hidden">
+            <div class="setting-row">
+                <label>API Server</label>
+                <input type="url" id="server-url" value="https://x97115104-myvoice.hf.space" placeholder="https://x97115104-myvoice.hf.space">
+            </div>
+            <p class="setting-hint">Uses Hugging Face Spaces for free GPU inference</p>
+        </div>
+    </aside>
+
+    <!-- How to Use Modal -->
+    <div id="info-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>About My Voice</h3>
+                <button id="btn-close-info" class="btn-modal-close">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p><strong>My Voice</strong> is a free voice cloning and text-to-speech tool. Clone any voice from a short audio sample and generate natural-sounding speech.</p>
+                
+                <h4>How it works</h4>
+                <ol>
+                    <li><strong>Provide a voice sample</strong> - Upload an audio file (MP3, M4A, WAV) or record in your browser. 10-30 seconds of clear speech works best.</li>
+                    <li><strong>Enter your text</strong> - Type or paste text, or fetch content from a URL.</li>
+                    <li><strong>Generate</strong> - Click generate and wait ~10-30 seconds for the AI to synthesize your audio.</li>
+                    <li><strong>Download</strong> - Download the audio file or share a link.</li>
+                </ol>
+
+                <h4>Tips for best results</h4>
+                <ul>
+                    <li>Use clear audio with minimal background noise</li>
+                    <li>10-30 seconds of continuous speech is ideal</li>
+                    <li>WAV format tends to produce best quality</li>
+                    <li>Matching the voice sample language to output language gives best results</li>
+                </ul>
+
+                <h4>Privacy</h4>
+                <p>Voice samples are processed on Hugging Face Spaces and deleted after generation. No data is stored permanently.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="share-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Share Link</h3>
+                <button id="btn-close-share" class="btn-modal-close">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Copy this link to share your text configuration:</p>
+                <div class="share-link-row">
+                    <input type="text" id="share-link" readonly>
+                    <button id="btn-copy-link" class="btn-copy">Copy</button>
+                </div>
+                <p class="share-note">Note: The recipient will need to provide their own voice sample.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Setup Modal -->
+    <div id="setup-modal" class="modal-overlay hidden">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <h3>Host Your Own Backend</h3>
+                <button id="btn-close-setup" class="btn-modal-close">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Run your own My Voice backend on Hugging Face Spaces with free GPU inference. Follow these steps:</p>
+                
+                <h4>1. Create a Hugging Face Space</h4>
+                <ol>
+                    <li>Go to <a href="https://huggingface.co/new-space" target="_blank">huggingface.co/new-space</a></li>
+                    <li>Name your space (e.g., <code>myvoice</code>)</li>
+                    <li>Select <strong>Gradio</strong> as the SDK</li>
+                    <li>Select <strong>T4 small</strong> (free tier) for hardware</li>
+                    <li>Click Create Space</li>
+                </ol>
+
+                <h4>2. Add app.py</h4>
+                <p>Create a file named <code>app.py</code> and paste this code:</p>
+                <div class="code-block">
+                    <button class="btn-copy-code" data-target="app-py-code">Copy</button>
+                    <pre id="app-py-code">import gradio as gr
+import torch
+from TTS.api import TTS
+import tempfile
+import os
+import base64
+import io
+from pydub import AudioSegment
+
+# Initialize TTS with XTTS v2
+device = "cuda" if torch.cuda.is_available() else "cpu"
+tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+
+def convert_to_wav(audio_path):
+    """Convert any audio format to WAV"""
+    audio = AudioSegment.from_file(audio_path)
+    wav_path = tempfile.mktemp(suffix=".wav")
+    audio.export(wav_path, format="wav")
+    return wav_path
+
+def generate_speech(text, speaker_audio, language="en", speed=1.0):
+    """Generate speech using voice cloning"""
+    if not text or not speaker_audio:
+        return None
+    
+    try:
+        # Convert to WAV if needed
+        wav_path = convert_to_wav(speaker_audio)
+        
+        # Generate output
+        output_path = tempfile.mktemp(suffix=".wav")
+        tts.tts_to_file(
+            text=text,
+            speaker_wav=wav_path,
+            language=language,
+            file_path=output_path,
+            speed=speed
+        )
+        
+        # Clean up temp WAV
+        if wav_path != speaker_audio:
+            os.remove(wav_path)
+        
+        return output_path
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+def generate_speech_base64(text, speaker_audio, language="en", speed=1.0):
+    """Generate speech and return as base64 for API use"""
+    output_path = generate_speech(text, speaker_audio, language, speed)
+    if output_path and os.path.exists(output_path):
+        with open(output_path, "rb") as f:
+            audio_base64 = base64.b64encode(f.read()).decode()
+        os.remove(output_path)
+        return {"audio": audio_base64, "format": "wav"}
+    return {"error": "Generation failed"}
+
+# Create Gradio interface
+with gr.Blocks(title="My Voice TTS") as demo:
+    gr.Markdown("# My Voice - Voice Cloning TTS")
+    gr.Markdown("Upload a voice sample and enter text to generate speech.")
+    
+    with gr.Row():
+        with gr.Column():
+            speaker_audio = gr.Audio(
+                label="Voice Sample (10-30s recommended)", 
+                type="filepath"
+            )
+            text_input = gr.Textbox(
+                label="Text to speak", 
+                placeholder="Enter text...",
+                lines=5
+            )
+            with gr.Row():
+                language = gr.Dropdown(
+                    choices=["en", "es", "fr", "de", "it", "pt", "pl", 
+                             "tr", "ru", "nl", "cs", "ar", "zh-cn", "ja", "ko"],
+                    value="en",
+                    label="Language"
+                )
+                speed = gr.Slider(0.5, 2.0, 1.0, step=0.1, label="Speed")
+            generate_btn = gr.Button("Generate Speech", variant="primary")
+        
+        with gr.Column():
+            output_audio = gr.Audio(label="Generated Speech", type="filepath")
+    
+    generate_btn.click(
+        generate_speech,
+        inputs=[text_input, speaker_audio, language, speed],
+        outputs=output_audio
+    )
+
+demo.launch()</pre>
+                </div>
+
+                <h4>3. Add requirements.txt</h4>
+                <p>Create <code>requirements.txt</code> with:</p>
+                <div class="code-block">
+                    <button class="btn-copy-code" data-target="requirements-code">Copy</button>
+                    <pre id="requirements-code">TTS>=0.22.0
+torch
+torchaudio
+pydub
+gradio>=4.0.0</pre>
+                </div>
+
+                <h4>4. Add README.md</h4>
+                <p>Create <code>README.md</code> with this Space configuration:</p>
+                <div class="code-block">
+                    <button class="btn-copy-code" data-target="readme-code">Copy</button>
+                    <pre id="readme-code">---
+title: My Voice
+emoji: 🎤
+colorFrom: gray
+colorTo: gray
+sdk: gradio
+sdk_version: "4.44.0"
+python_version: "3.10"
+app_file: app.py
+pinned: false
+license: mit
+hardware: t4-small
+---</pre>
+                </div>
+
+                <h4>5. Update Your Frontend</h4>
+                <p>Once your Space is running, update the server URL in settings to:</p>
+                <code>https://YOUR-USERNAME-myvoice.hf.space</code>
+
+                <h4>Notes</h4>
+                <ul>
+                    <li>The T4 GPU is free but may have queue times</li>
+                    <li>First generation takes longer (model loading)</li>
+                    <li>Space sleeps after inactivity - first request wakes it</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Server Status Indicator -->
+    <div id="server-status" class="server-status">
+        <span id="status-dot" class="status-dot offline"></span>
+        <span id="status-text">Checking server...</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="license-section">
+        <div class="license-badge">
+            MIT License
+            <div class="license-tooltip">Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</div>
+        </div>
+        <a href="https://github.com/sponsors/97115104" target="_blank">Created by 97 115 104</a>
+        <a href="https://github.com/97115104/myvoice" target="_blank">View source on GitHub</a>
+        <a href="https://97115104.com/projects/" target="_blank">Other projects</a>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

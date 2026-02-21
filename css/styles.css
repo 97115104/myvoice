@@ -1,0 +1,875 @@
+/* My Voice - Voice Cloning & TTS */
+/* Design inspired by 97115104.com */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #333;
+    background: #fff;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+/* SVG Icons */
+.icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.icon-sm {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+/* Main Container */
+.container {
+    background: #f9f9f9;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+/* Typography */
+h1 {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: normal;
+}
+
+h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: normal;
+}
+
+h4 {
+    font-size: 15px;
+    margin: 16px 0 8px;
+    color: #333;
+}
+
+.subtitle {
+    text-align: center;
+    color: #777;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+/* How to use button */
+.how-to-use-row {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.btn-how-to-use {
+    background: transparent;
+    color: #888;
+    border: none;
+    font-size: 12px;
+    padding: 2px 8px;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+
+.btn-how-to-use:hover {
+    color: #555;
+}
+
+/* Section styling */
+.section {
+    margin-bottom: 20px;
+}
+
+.section-hint {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 12px;
+}
+
+.section-divider {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 20px 0;
+}
+
+/* Voice Input Options - Fixed alignment */
+.voice-input-options {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.option-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 180px;
+}
+
+.option-divider {
+    color: #999;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+}
+
+.btn-upload,
+.btn-record {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    background: #fff;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+    color: #555;
+    min-width: 180px;
+    min-height: 52px;
+}
+
+.btn-record {
+    border-style: solid;
+}
+
+.btn-upload:hover,
+.btn-record:hover {
+    border-color: #999;
+    background: #fafafa;
+}
+
+.btn-record.recording {
+    background: #ffe5e5;
+    border-color: #e74c3c;
+    color: #e74c3c;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.file-name,
+.record-status {
+    font-size: 12px;
+    color: #888;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-height: 18px;
+    text-align: center;
+}
+
+/* Audio Preview */
+.audio-preview {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.audio-preview audio {
+    flex: 1;
+    height: 40px;
+}
+
+.btn-clear {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 8px;
+}
+
+.btn-clear:hover {
+    color: #e74c3c;
+}
+
+/* Text Input Tabs */
+.text-input-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.text-tab-btn {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    font-size: 13px;
+    color: #777;
+    transition: all 0.2s;
+}
+
+.text-tab-btn.active {
+    background: #fff;
+    color: #333;
+    border-color: #ddd;
+}
+
+.text-tab-btn:hover:not(.active) {
+    background: #f5f5f5;
+}
+
+/* Text Panel */
+.text-panel {
+    display: none;
+}
+
+.text-panel.active {
+    display: block;
+}
+
+#text-input {
+    width: 100%;
+    min-height: 150px;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 0 8px 8px 8px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: vertical;
+    transition: border-color 0.2s;
+}
+
+#text-input:focus {
+    outline: none;
+    border-color: #999;
+}
+
+.char-count {
+    text-align: right;
+    font-size: 12px;
+    color: #999;
+    margin-top: 4px;
+}
+
+/* URL Input */
+.url-input-row {
+    display: flex;
+    gap: 8px;
+}
+
+#url-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+#url-input:focus {
+    outline: none;
+    border-color: #999;
+}
+
+.btn-fetch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.btn-fetch:hover {
+    background: #f5f5f5;
+    border-color: #999;
+}
+
+.btn-fetch:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.url-status {
+    font-size: 12px;
+    margin-top: 8px;
+    color: #888;
+}
+
+.url-status.error {
+    color: #e74c3c;
+}
+
+.url-status.success {
+    color: #27ae60;
+}
+
+/* Settings Row (inline) */
+.settings-row {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.setting-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.setting-inline label {
+    font-size: 13px;
+    color: #555;
+}
+
+.setting-inline select {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    background: #fff;
+}
+
+.setting-inline input[type="range"] {
+    width: 100px;
+}
+
+#speed-value {
+    font-size: 13px;
+    color: #777;
+    min-width: 35px;
+}
+
+/* Generate Button */
+.btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 24px;
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #555;
+}
+
+.btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.btn-primary .icon {
+    stroke: currentColor;
+}
+
+/* Spinner */
+.spinner {
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Progress */
+.progress-container {
+    margin-top: 16px;
+}
+
+.progress-bar {
+    height: 4px;
+    background: #eee;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #333;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.progress-text {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-top: 8px;
+    text-align: center;
+}
+
+/* Output Section */
+.output-section {
+    text-align: center;
+}
+
+.output-section audio {
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.output-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.btn-download,
+.btn-share {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-download {
+    background: #333;
+    color: #fff;
+    border: none;
+}
+
+.btn-download:hover {
+    background: #555;
+}
+
+.btn-download .icon-sm {
+    stroke: currentColor;
+}
+
+.btn-share {
+    background: #fff;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.btn-share:hover {
+    background: #f5f5f5;
+    border-color: #999;
+}
+
+/* Settings Panel */
+.settings-panel {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+}
+
+.btn-toggle-settings {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-toggle-settings:hover {
+    background: #f5f5f5;
+}
+
+.settings-content {
+    position: absolute;
+    bottom: 45px;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    min-width: 300px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.setting-row label {
+    font-size: 13px;
+    color: #555;
+}
+
+.setting-row input[type="url"] {
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.setting-hint {
+    font-size: 11px;
+    color: #999;
+    margin: 0;
+}
+
+/* Server Status */
+.server-status {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 20px;
+    font-size: 12px;
+    color: #777;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-dot.online {
+    background: #27ae60;
+}
+
+.status-dot.offline {
+    background: #e74c3c;
+}
+
+.status-dot.checking {
+    background: #f39c12;
+    animation: pulse 1s infinite;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+}
+
+.modal {
+    background: #fff;
+    border-radius: 8px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-body {
+    padding: 20px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #444;
+}
+
+.modal-body ol,
+.modal-body ul {
+    margin-left: 20px;
+    margin-bottom: 12px;
+}
+
+.modal-body li {
+    margin-bottom: 6px;
+}
+
+.modal-body pre {
+    background: #f5f5f5;
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 12px;
+    margin: 12px 0;
+}
+
+.modal-body code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.btn-modal-close {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-modal-close:hover {
+    color: #333;
+}
+
+/* Share Modal */
+.share-link-row {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.share-link-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    background: #f9f9f9;
+}
+
+.btn-copy {
+    padding: 10px 16px;
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.btn-copy:hover {
+    background: #555;
+}
+
+.share-note {
+    font-size: 12px;
+    color: #888;
+    font-style: italic;
+}
+
+/* Setup Modal */
+.modal-wide {
+    max-width: 700px;
+    max-height: 85vh;
+}
+
+.modal-wide .modal-body {
+    max-height: calc(85vh - 60px);
+    overflow-y: auto;
+}
+
+.code-block {
+    position: relative;
+    margin: 12px 0;
+}
+
+.code-block pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+    white-space: pre;
+}
+
+.btn-copy-code {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-copy-code:hover {
+    background: rgba(255,255,255,0.25);
+}
+
+.how-to-divider {
+    color: #ccc;
+    font-size: 16px;
+}
+
+/* Footer */
+.license-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 20px;
+    font-size: 12px;
+    color: #888;
+}
+
+.license-section a {
+    color: #888;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.license-section a:hover {
+    color: #555;
+}
+
+.license-badge {
+    position: relative;
+    cursor: help;
+    padding: 4px 8px;
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.license-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    width: 300px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s;
+    z-index: 50;
+}
+
+.license-badge:hover .license-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Hidden utility */
+.hidden {
+    display: none !important;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+    
+    .container {
+        padding: 16px;
+    }
+    
+    h1 {
+        font-size: 24px;
+    }
+    
+    .voice-input-options {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .option-divider {
+        padding: 8px 0;
+    }
+    
+    .settings-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .output-actions {
+        flex-direction: column;
+    }
+    
+    .btn-download,
+    .btn-share {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .settings-panel {
+        right: 10px;
+    }
+    
+    .settings-content {
+        min-width: 250px;
+    }
+    
+    .license-section {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
