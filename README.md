@@ -75,10 +75,7 @@ English, Spanish, French, German, Italian, Portuguese, Polish, Turkish, Russian,
 
 ## Privacy
 
-Everything runs locally on your machine:
-- Voice samples are processed locally and never uploaded
-- Text processing happens on your computer
-- No telemetry, no API calls to external services
+Everything runs locally on your machine which means voice samples are processed locally and never uploaded, text processing happens on your computer and there is no telemetry or API calls to external services.
 
 ## Technical details
 
