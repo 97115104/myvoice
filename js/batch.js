@@ -43,7 +43,14 @@ const elements = {
     previewChars: document.getElementById('preview-chars'),
     btnClosePreview: document.getElementById('btn-close-preview'),
     btnCancelPreview: document.getElementById('btn-cancel-preview'),
-    btnConfirmAdd: document.getElementById('btn-confirm-add')
+    btnConfirmAdd: document.getElementById('btn-confirm-add'),
+    // Bulk import
+    btnBulkImport: document.getElementById('btn-bulk-import'),
+    bulkModal: document.getElementById('bulk-modal'),
+    bulkUrls: document.getElementById('bulk-urls'),
+    urlCount: document.getElementById('url-count'),
+    btnCancelBulk: document.getElementById('btn-cancel-bulk'),
+    btnImportBulk: document.getElementById('btn-import-bulk')
 };
 
 // Preview state
@@ -52,6 +59,9 @@ let previewData = {
     title: '',
     content: ''
 };
+
+// Edit mode - ID of item being edited, or null for new item
+let editingItemId = null;
 
 // Helper to get output path
 function getOutputPath() {
@@ -91,6 +101,15 @@ function init() {
     elements.speed.addEventListener('input', () => {
         elements.speedValue.textContent = `${elements.speed.value}x`;
     });
+    
+    // Bulk import handlers
+    elements.btnBulkImport.addEventListener('click', showBulkModal);
+    elements.btnCancelBulk.addEventListener('click', closeBulkModal);
+    elements.btnImportBulk.addEventListener('click', importBulkUrls);
+    elements.bulkModal.addEventListener('click', (e) => {
+        if (e.target === elements.bulkModal) closeBulkModal();
+    });
+    elements.bulkUrls.addEventListener('input', updateUrlCount);
     
     updateGenerateButton();
     renderQueue();
@@ -241,11 +260,99 @@ async function fetchUrlWithTitle(url) {
 function closePreview() {
     elements.previewModal.classList.remove('visible');
     previewData = { url: '', title: '', content: '' };
+    editingItemId = null;
     
     // Reset modal state
     elements.previewTitle.value = '';
     elements.previewContent.value = '';
     elements.previewChars.textContent = '0';
+    elements.btnConfirmAdd.textContent = 'Add to Queue';
+}
+
+// Bulk import functions
+function showBulkModal() {
+    elements.bulkUrls.value = '';
+    updateUrlCount();
+    elements.bulkModal.classList.add('visible');
+    elements.bulkUrls.focus();
+}
+
+function closeBulkModal() {
+    elements.bulkModal.classList.remove('visible');
+    elements.bulkUrls.value = '';
+}
+
+function parseUrls(text) {
+    return text
+        .split(/[\n\r]+/)
+        .map(line => line.trim())
+        .filter(line => {
+            try {
+                new URL(line);
+                return true;
+            } catch {
+                return false;
+            }
+        });
+}
+
+function updateUrlCount() {
+    const urls = parseUrls(elements.bulkUrls.value);
+    elements.urlCount.textContent = `${urls.length} URL${urls.length !== 1 ? 's' : ''} detected`;
+}
+
+async function importBulkUrls() {
+    const urls = parseUrls(elements.bulkUrls.value);
+    
+    if (urls.length === 0) {
+        alert('No valid URLs found. Please enter URLs (one per line).');
+        return;
+    }
+    
+    elements.btnImportBulk.disabled = true;
+    elements.btnImportBulk.innerHTML = '<span class="loading-spinner"></span> Importing...';
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const url of urls) {
+        try {
+            elements.urlCount.textContent = `Fetching ${successCount + errorCount + 1}/${urls.length}...`;
+            
+            const { content, title } = await fetchUrlWithTitle(url);
+            
+            const item = {
+                id: Date.now() + Math.random(),
+                url: url,
+                title: sanitizeFilename(title),
+                content: content,
+                status: 'pending',
+                error: null
+            };
+            
+            state.queue.push(item);
+            successCount++;
+            renderQueue();
+            
+        } catch (error) {
+            console.error(`Failed to fetch ${url}:`, error);
+            errorCount++;
+        }
+    }
+    
+    elements.btnImportBulk.disabled = false;
+    elements.btnImportBulk.textContent = 'Import All';
+    
+    // Always update button state
+    updateGenerateButton();
+    
+    if (successCount > 0) {
+        closeBulkModal();
+    }
+    
+    if (errorCount > 0) {
+        alert(`Imported ${successCount} URLs. ${errorCount} failed to fetch.`);
+    }
 }
 
 function confirmAddToQueue() {
@@ -258,16 +365,27 @@ function confirmAddToQueue() {
         return;
     }
     
-    const item = {
-        id: Date.now(),
-        url: previewData.url || '',
-        title: sanitizeFilename(title),
-        content: content,
-        status: 'pending',
-        error: null
-    };
+    if (editingItemId !== null) {
+        // Update existing item
+        const item = state.queue.find(i => i.id === editingItemId);
+        if (item) {
+            item.title = sanitizeFilename(title);
+            item.content = content;
+        }
+        editingItemId = null;
+    } else {
+        // Add new item
+        const item = {
+            id: Date.now(),
+            url: previewData.url || '',
+            title: sanitizeFilename(title),
+            content: content,
+            status: 'pending',
+            error: null
+        };
+        state.queue.push(item);
+    }
     
-    state.queue.push(item);
     renderQueue();
     
     // Clear URL input
@@ -298,6 +416,31 @@ function sanitizeFilename(name) {
         .substring(0, 100);
 }
 
+// Edit existing queue item
+function editQueueItem(id) {
+    const item = state.queue.find(i => i.id === id);
+    if (!item || item.status !== 'pending') return;
+    
+    editingItemId = id;
+    
+    // Populate modal with item data
+    previewData = {
+        url: item.url,
+        title: item.title,
+        content: item.content
+    };
+    
+    elements.previewTitle.value = item.title;
+    elements.previewContent.value = item.content;
+    updateCharCount();
+    
+    // Change button text for edit mode
+    elements.btnConfirmAdd.textContent = 'Save Changes';
+    
+    // Show modal
+    elements.previewModal.classList.add('visible');
+}
+
 function removeFromQueue(id) {
     state.queue = state.queue.filter(item => item.id !== id);
     renderQueue();
@@ -323,14 +466,14 @@ function renderQueue() {
     
     elements.queueContainer.innerHTML = state.queue.map(item => `
         <div class="queue-item ${item.status}" data-id="${item.id}">
-            <div>
+            <div class="queue-item-info" onclick="editQueueItem(${item.id})" style="cursor: pointer;">
                 <div style="font-weight: 500; margin-bottom: 0.25rem;">${escapeHtml(item.title)}.wav</div>
                 <div style="font-size: 12px; color: #888; word-break: break-all;">${escapeHtml(item.url)}</div>
             </div>
             <div style="text-align: center;">
                 ${getStatusBadge(item.status)}
             </div>
-            <button class="btn-remove" onclick="removeFromQueue(${item.id})" ${item.status === 'processing' ? 'disabled' : ''}>
+            <button class="btn-remove" onclick="event.stopPropagation(); removeFromQueue(${item.id})" ${item.status === 'processing' ? 'disabled' : ''}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18"/>
                     <line x1="6" y1="6" x2="18" y2="18"/>

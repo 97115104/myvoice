@@ -10,8 +10,9 @@ My Voice lets you clone any voice from a short audio sample and generate speech 
 
 - **Voice Cloning** - Clone any voice from a short audio sample
 - **Text-to-Speech** - Convert text into speech using the cloned voice
+- **Batch Generation** - Process multiple URLs at once with bulk import
 - **Multi-language Support** - 16+ languages including English, Spanish, French, German, Chinese, Japanese
-- **URL Content Extraction** - Fetch article text directly from URLs
+- **URL Content Extraction** - Fetch article text directly from URLs with paragraph preservation
 - **Browser Recording** - Record voice samples directly in the browser
 - **100% Local** - All processing happens on your machine, nothing leaves your computer
 - **GPU Acceleration** - Uses CUDA automatically when available for faster generation
@@ -39,12 +40,20 @@ Open the UI at `http://localhost:5123/ui`.
 
 ## How to use
 
+### Single Generation
 1. **Start the server** - Run `python3 server.py` to start the local TTS server
 2. **Open the UI** - Go to `http://localhost:5123/ui` in your browser
 3. **Provide a voice sample** - Upload an audio file (MP3, M4A, WAV) or record directly in the browser. 10-30 seconds of clear speech works best.
 4. **Enter your text** - Type the text you want to convert, or fetch content from a URL.
 5. **Generate** - Click generate and wait for the AI to synthesize your audio.
 6. **Download** - Download the audio file.
+
+### Batch Generation
+1. **Open the batch page** - Go to `http://localhost:5123/batch` in your browser
+2. **Upload a voice sample** - Same as single generation
+3. **Add URLs** - Either add URLs one at a time with "Preview & Add", or use "Bulk Import" to paste multiple URLs at once (one per line)
+4. **Set output directory** - Choose where to save the generated files
+5. **Generate All** - Click to process all queued items sequentially
 
 ## Requirements
 
@@ -94,7 +103,8 @@ The server exposes these endpoints:
 ```
 GET  /api/health              # Server status check
 POST /api/tts                 # Generate speech (form data: text, voice, language, speed)
-POST /api/fetch-url           # Extract text from URL
+POST /api/batch-tts           # Batch generate speech with file saving
+POST /api/fetch-url           # Extract text from URL (preserves paragraphs)
 GET  /api/tags                # Ollama-compatible model list
 ```
 

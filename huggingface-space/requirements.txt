@@ -1,7 +1,0 @@
-TTS>=0.22.0
-torch>=2.0.0,<2.6.0
-torchaudio>=2.0.0,<2.6.0
-transformers>=4.30.0,<4.40.0
-spaces
-pydub
-ffmpeg-python

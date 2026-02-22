@@ -698,9 +698,15 @@ def batch_text_to_speech():
         
         voice_file = request.files['voice']
         
-        # Save voice to temp file
-        voice_path = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+        # Preserve original file extension for format detection
+        original_filename = voice_file.filename or 'voice.wav'
+        ext = Path(original_filename).suffix or '.wav'
+        
+        # Save voice to temp file with correct extension
+        voice_path = tempfile.NamedTemporaryFile(suffix=ext, delete=False).name
         voice_file.save(voice_path)
+        
+        logger.info(f"Voice file saved: {voice_path} (from {original_filename})")
         
         # Convert to WAV if needed
         wav_path = convert_to_wav(voice_path)
