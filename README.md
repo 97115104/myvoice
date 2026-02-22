@@ -1,10 +1,10 @@
 # My Voice
 
-Clone any voice and generate natural-sounding speech from text. Runs locally on your machine — no API keys, no data leaves your computer.
+Clone any voice and generate closer to natural-sounding speech from text. Runs locally on your machine and requires cloning.
 
 ## What it does
 
-My Voice lets you clone any voice from a short audio sample and generate speech from text. Upload 10-30 seconds of someone speaking, enter your text, and get natural-sounding audio in their voice.
+My Voice lets you clone any voice from a short audio sample and generate speech from text. Upload 10-30 seconds of someone speaking, enter your text, and get naturalish-sounding audio in their voice.
 
 ## Features
 
@@ -15,7 +15,7 @@ My Voice lets you clone any voice from a short audio sample and generate speech 
 - **URL Content Extraction** - Fetch article text directly from URLs with paragraph preservation
 - **Browser Recording** - Record voice samples directly in the browser
 - **100% Local** - All processing happens on your machine, nothing leaves your computer
-- **GPU Acceleration** - Uses CUDA automatically when available for faster generation
+- **GPU Acceleration** - Uses CUDA (NVIDIA) or MPS (MacOS) automatically when available for faster generation
 
 ## Quick Start
 
