@@ -14,6 +14,10 @@ API Endpoints:
 
 import os
 import sys
+
+# Accept Coqui TOS automatically - MUST be before TTS imports
+os.environ["COQUI_TOS_AGREED"] = "1"
+
 import json
 import base64
 import tempfile
@@ -109,26 +113,48 @@ def convert_to_wav(input_path):
     output_path = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
     
     try:
-        # Load audio using torchaudio
-        waveform, sample_rate = torchaudio.load(input_path)
+        # Use pydub (ffmpeg) for robust format handling (m4a, mp3, webm, etc.)
+        from pydub import AudioSegment
         
-        # Convert to mono if stereo
-        if waveform.shape[0] > 1:
-            waveform = torch.mean(waveform, dim=0, keepdim=True)
+        # Detect format from extension
+        ext = Path(input_path).suffix.lower().lstrip('.')
+        if ext == 'm4a':
+            ext = 'mp4'  # pydub uses mp4 for m4a
+        elif ext in ['', 'wav']:
+            ext = 'wav'
         
-        # Resample to 22050 Hz (XTTS requirement)
-        if sample_rate != 22050:
-            resampler = torchaudio.transforms.Resample(sample_rate, 22050)
-            waveform = resampler(waveform)
+        # Load with pydub
+        audio = AudioSegment.from_file(input_path, format=ext if ext else None)
         
-        # Save as WAV
-        torchaudio.save(output_path, waveform, 22050)
+        # Convert to mono, 22050 Hz
+        audio = audio.set_channels(1).set_frame_rate(22050)
+        
+        # Export as WAV
+        audio.export(output_path, format='wav')
         
         return output_path
     except Exception as e:
-        logger.error(f"Audio conversion error: {e}")
-        # Try using the original file
-        return input_path
+        logger.error(f"Audio conversion error with pydub: {e}")
+        # Fallback to torchaudio
+        try:
+            waveform, sample_rate = torchaudio.load(input_path)
+            
+            # Convert to mono if stereo
+            if waveform.shape[0] > 1:
+                waveform = torch.mean(waveform, dim=0, keepdim=True)
+            
+            # Resample to 22050 Hz (XTTS requirement)
+            if sample_rate != 22050:
+                resampler = torchaudio.transforms.Resample(sample_rate, 22050)
+                waveform = resampler(waveform)
+            
+            # Save as WAV
+            torchaudio.save(output_path, waveform, 22050)
+            
+            return output_path
+        except Exception as e2:
+            logger.error(f"Fallback audio conversion error: {e2}")
+            return input_path
 
 
 def extract_text_from_url(url):
@@ -166,6 +192,83 @@ def extract_text_from_url(url):
         raise
 
 
+def split_text_into_chunks(text, max_chars=200):
+    """Split text into sentence chunks for XTTS processing.
+    
+    XTTS v2 works best with shorter text segments (under 250 chars).
+    This function splits on sentence boundaries for natural speech.
+    """
+    # Split on sentence endings
+    sentence_endings = re.compile(r'(?<=[.!?])\s+')
+    sentences = sentence_endings.split(text)
+    
+    chunks = []
+    current_chunk = ""
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+            
+        # If sentence itself is too long, split on commas/semicolons
+        if len(sentence) > max_chars:
+            # Split on clause boundaries
+            clause_split = re.split(r'(?<=[,;:])\s+', sentence)
+            for clause in clause_split:
+                clause = clause.strip()
+                if not clause:
+                    continue
+                if len(current_chunk) + len(clause) + 1 <= max_chars:
+                    current_chunk = f"{current_chunk} {clause}".strip()
+                else:
+                    if current_chunk:
+                        chunks.append(current_chunk)
+                    # If clause is still too long, force split
+                    if len(clause) > max_chars:
+                        words = clause.split()
+                        current_chunk = ""
+                        for word in words:
+                            if len(current_chunk) + len(word) + 1 <= max_chars:
+                                current_chunk = f"{current_chunk} {word}".strip()
+                            else:
+                                if current_chunk:
+                                    chunks.append(current_chunk)
+                                current_chunk = word
+                    else:
+                        current_chunk = clause
+        elif len(current_chunk) + len(sentence) + 1 <= max_chars:
+            current_chunk = f"{current_chunk} {sentence}".strip()
+        else:
+            if current_chunk:
+                chunks.append(current_chunk)
+            current_chunk = sentence
+    
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    return chunks
+
+
+def concatenate_audio_files(audio_paths, output_path):
+    """Concatenate multiple audio files into one using pydub"""
+    from pydub import AudioSegment
+    
+    combined = AudioSegment.empty()
+    
+    for path in audio_paths:
+        try:
+            audio = AudioSegment.from_wav(path)
+            # Add small pause between chunks for natural speech
+            combined += audio + AudioSegment.silent(duration=150)
+        except Exception as e:
+            logger.warning(f"Failed to load audio chunk {path}: {e}")
+            continue
+    
+    # Export combined audio
+    combined.export(output_path, format='wav')
+    return output_path
+
+
 # API Routes
 
 @app.route('/api/health', methods=['GET'])
@@ -177,6 +280,16 @@ def health_check():
         'model_loaded': tts_model is not None,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
         'cuda_available': torch.cuda.is_available()
+    })
+
+
+@app.route('/api/tags', methods=['GET'])
+def api_tags():
+    """Ollama-compatible tags endpoint for preflight checks"""
+    return jsonify({
+        'models': [
+            {'name': 'xtts_v2', 'size': '1.8GB'}
+        ]
     })
 
 
@@ -215,22 +328,57 @@ def text_to_speech():
         voice_path = decode_audio_data(voice_data)
         wav_path = convert_to_wav(voice_path)
         
-        # Generate speech
-        output_path = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+        # Split text into chunks for reliable generation
+        chunks = split_text_into_chunks(text, max_chars=200)
+        total_chunks = len(chunks)
+        logger.info(f"Split into {total_chunks} chunks for processing")
         
-        tts_model.tts_to_file(
-            text=text,
-            speaker_wav=wav_path,
-            language=language,
-            file_path=output_path,
-            speed=speed
-        )
+        if total_chunks > 10 and not torch.cuda.is_available():
+            logger.warning("Long text on CPU - generation may take several minutes. Consider using GPU for faster processing.")
+        
+        # Generate audio for each chunk
+        chunk_paths = []
+        for i, chunk in enumerate(chunks):
+            logger.info(f"Processing chunk {i+1}/{total_chunks}: {len(chunk)} chars")
+            
+            chunk_output = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+            
+            try:
+                tts_model.tts_to_file(
+                    text=chunk,
+                    speaker_wav=wav_path,
+                    language=language,
+                    file_path=chunk_output,
+                    speed=speed
+                )
+                chunk_paths.append(chunk_output)
+            except Exception as e:
+                logger.error(f"Failed to generate chunk {i+1}: {e}")
+                # Continue with other chunks
+                continue
+        
+        if not chunk_paths:
+            return jsonify({'error': 'Failed to generate any audio chunks'}), 500
+        
+        # Concatenate all chunks
+        if len(chunk_paths) == 1:
+            output_path = chunk_paths[0]
+        else:
+            output_path = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+            concatenate_audio_files(chunk_paths, output_path)
+            # Clean up individual chunk files
+            for path in chunk_paths:
+                try:
+                    os.unlink(path)
+                except:
+                    pass
         
         # Convert to MP3 for smaller file size
         mp3_path = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False).name
         
-        waveform, sample_rate = torchaudio.load(output_path)
-        torchaudio.save(mp3_path, waveform, sample_rate, format='mp3')
+        from pydub import AudioSegment
+        audio = AudioSegment.from_wav(output_path)
+        audio.export(mp3_path, format='mp3', bitrate='192k')
         
         # Clean up temp files
         try:
@@ -389,7 +537,13 @@ def fetch_url():
 
 @app.route('/', methods=['GET'])
 def index():
-    """Serve the frontend"""
+    """Ollama-style status page"""
+    return "My Voice is running", 200, {'Content-Type': 'text/plain'}
+
+
+@app.route('/ui', methods=['GET'])
+def serve_ui():
+    """Serve the frontend UI"""
     return send_file('index.html')
 
 
@@ -408,7 +562,7 @@ def serve_js(filename):
 def main():
     parser = argparse.ArgumentParser(description='My Voice TTS Server')
     parser.add_argument('--host', default='0.0.0.0', help='Host to bind to')
-    parser.add_argument('--port', type=int, default=5000, help='Port to bind to')
+    parser.add_argument('--port', type=int, default=5123, help='Port to bind to')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     args = parser.parse_args()
     

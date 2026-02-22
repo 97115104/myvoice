@@ -9,7 +9,6 @@ python_version: "3.10"
 app_file: app.py
 pinned: false
 license: mit
-hardware: t4-small
 ---
 
 # My Voice - Voice Cloning TTS

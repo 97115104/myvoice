@@ -1,8 +1,6 @@
 # My Voice
 
-Clone any voice and generate natural-sounding speech from text.
-
-**[Try it now →](https://97115104.github.io/myvoice/)**
+Clone any voice and generate natural-sounding speech from text. Runs locally on your machine — no API keys, no data leaves your computer.
 
 ## What it does
 
@@ -15,27 +13,45 @@ My Voice lets you clone any voice from a short audio sample and generate speech 
 - **Multi-language Support** - 16+ languages including English, Spanish, French, German, Chinese, Japanese
 - **URL Content Extraction** - Fetch article text directly from URLs
 - **Browser Recording** - Record voice samples directly in the browser
-- **Free** - Uses Hugging Face Spaces for free GPU inference
+- **100% Local** - All processing happens on your machine, nothing leaves your computer
+- **GPU Acceleration** - Uses CUDA automatically when available for faster generation
+
+## Quick Start
+
+```bash
+# Install ffmpeg and Python 3.11 (required)
+brew install ffmpeg python@3.11  # macOS
+# sudo apt install ffmpeg python3.11  # Linux
+# choco install ffmpeg python311  # Windows
+
+# Install Python dependencies
+pip3 install TTS flask flask-cors pydub beautifulsoup4 requests
+
+# Clone and run
+git clone https://github.com/97115104/myvoice.git
+cd myvoice
+python3 server.py
+```
+
+First run downloads the XTTS model (~1.8GB). Server starts on `http://localhost:5123`.
+
+Open the UI at `http://localhost:5123/ui`.
 
 ## How to use
 
-1. **Provide a voice sample** - Upload an audio file (MP3, M4A, WAV) or record directly in the browser. 10-30 seconds of clear speech works best.
-2. **Enter your text** - Type the text you want to convert, or fetch content from a URL.
-3. **Generate** - Click generate and wait for the AI to synthesize your audio (~10-30 seconds).
-4. **Download** - Download the audio file or share a link.
+1. **Start the server** - Run `python3 server.py` to start the local TTS server
+2. **Open the UI** - Go to `http://localhost:5123/ui` in your browser
+3. **Provide a voice sample** - Upload an audio file (MP3, M4A, WAV) or record directly in the browser. 10-30 seconds of clear speech works best.
+4. **Enter your text** - Type the text you want to convert, or fetch content from a URL.
+5. **Generate** - Click generate and wait for the AI to synthesize your audio.
+6. **Download** - Download the audio file.
 
-## URL Parameters
+## Requirements
 
-Pre-fill the UI via URL parameters for easy sharing:
-
-```
-?text=Hello%20world           # Pre-fill text
-?url=https://example.com      # Fetch text from URL
-?language=es                  # Set language (en, es, fr, de, etc.)
-?speed=1.2                    # Set speech speed
-```
-
-**Example:** [Listen to a blog post](https://97115104.github.io/myvoice/?url=https://97115104.com/2026/02/19/fetch-quests/)
+- **Python 3.9-3.11** (TTS package doesn't support Python 3.12+)
+- **ffmpeg** - For audio conversion (`brew install ffmpeg` on macOS)
+- **~4GB disk space** - For the XTTS model
+- **GPU (optional)** - CUDA GPU speeds up generation significantly
 
 ## Supported Languages
 
@@ -50,20 +66,35 @@ English, Spanish, French, German, Italian, Portuguese, Polish, Turkish, Russian,
 
 ## Privacy
 
-- Voice samples are processed on Hugging Face Spaces and deleted after generation
-- Text is processed server-side and not logged
-- URL fetching uses public CORS proxies
+Everything runs locally on your machine:
+- Voice samples are processed locally and never uploaded
+- Text processing happens on your computer
+- No telemetry, no API calls to external services
 
 ## Technical details
 
-- **Model**: [XTTS v2](https://huggingface.co/coqui/XTTS-v2) by Coqui AI
-- **Backend**: Gradio on [Hugging Face Spaces](https://huggingface.co/spaces/x97115104/myvoice) (free T4 GPU)
-- **Frontend**: Static site on GitHub Pages
-- **API**: https://x97115104-myvoice.hf.space
+- **Model**: [XTTS v2](https://huggingface.co/coqui/XTTS-v2) by Coqui AI (~1.8GB)
+- **Backend**: Flask server running on localhost:5123
+- **Frontend**: Static HTML/CSS/JS
 
-## Host your own
+## GPU Acceleration
 
-Want to run your own instance? See the [setup instructions](https://97115104.github.io/myvoice/) (click "Host your own").
+For faster generation, install CUDA PyTorch:
+
+```bash
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
+## API Reference
+
+The server exposes these endpoints:
+
+```
+GET  /api/health              # Server status check
+POST /api/tts                 # Generate speech (form data: text, voice, language, speed)
+POST /api/fetch-url           # Extract text from URL
+GET  /api/tags                # Ollama-compatible model list
+```
 
 ## License
 

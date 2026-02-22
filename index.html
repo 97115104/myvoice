@@ -190,12 +190,133 @@
         </button>
         <div id="settings-content" class="settings-content hidden">
             <div class="setting-row">
-                <label>API Server</label>
-                <input type="url" id="server-url" value="https://x97115104-myvoice.hf.space" placeholder="https://x97115104-myvoice.hf.space">
+                <label>Server URL</label>
+                <input type="url" id="server-url" value="http://localhost:5123" placeholder="http://localhost:5123">
             </div>
-            <p class="setting-hint">Uses Hugging Face Spaces for free GPU inference</p>
+            <div class="setting-hint-row">
+                <p class="setting-hint">Run locally — no data leaves your computer</p>
+                <button type="button" id="btn-local-help" class="btn-small">Setup Instructions</button>
+            </div>
+            <div class="setting-row">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="save-settings">
+                    Remember settings
+                </label>
+            </div>
         </div>
     </aside>
+
+    <!-- Local Setup Instructions Modal -->
+    <div id="local-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Running My Voice Locally</h3>
+                <button id="btn-close-local" class="btn-modal-close">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Run the voice cloning server locally on your own machine. No API key needed, no data leaves your computer.</p>
+
+                <p class="alert-box"><strong>Requirements:</strong> Python 3.9-3.11, ~4GB disk space for the model, and optionally a CUDA GPU for faster generation.</p>
+
+                <div class="os-tabs">
+                    <button class="os-tab-btn active" data-os="mac">macOS</button>
+                    <button class="os-tab-btn" data-os="win">Windows</button>
+                    <button class="os-tab-btn" data-os="linux">Linux</button>
+                </div>
+
+                <div class="os-panel active" data-os="mac">
+                    <h4>1. Install dependencies</h4>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">brew install ffmpeg python@3.11
+pip3 install TTS flask flask-cors pydub beautifulsoup4 requests</pre>
+                    </div>
+
+                    <h4>2. Clone the repository</h4>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">git clone https://github.com/97115104/myvoice.git
+cd myvoice</pre>
+                    </div>
+
+                    <h4>3. Start the server</h4>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">python3 server.py</pre>
+                    </div>
+                    <p>First run downloads the XTTS model (~1.8GB). Server starts on <code>http://localhost:5123</code></p>
+                    <p>Open the UI at <code>http://localhost:5123/ui</code></p>
+                </div>
+
+                <div class="os-panel" data-os="win">
+                    <h4>1. Install dependencies</h4>
+                    <p>Download ffmpeg from <a href="https://ffmpeg.org/download.html" target="_blank">ffmpeg.org</a> and add to PATH. Install Python 3.11 from <a href="https://python.org" target="_blank">python.org</a>. Then:</p>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">pip install TTS flask flask-cors pydub beautifulsoup4 requests</pre>
+                    </div>
+
+                    <h4>2. Clone the repository</h4>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">git clone https://github.com/97115104/myvoice.git
+cd myvoice</pre>
+                    </div>
+
+                    <h4>3. Start the server</h4>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">python server.py</pre>
+                    </div>
+                    <p>First run downloads the XTTS model (~1.8GB). Server starts on <code>http://localhost:5123</code></p>
+                    <p>Open the UI at <code>http://localhost:5123/ui</code></p>
+                </div>
+
+                <div class="os-panel" data-os="linux">
+                    <h4>1. Install dependencies</h4>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">sudo apt install ffmpeg python3.11 python3.11-venv
+pip3 install TTS flask flask-cors pydub beautifulsoup4 requests</pre>
+                    </div>
+
+                    <h4>2. Clone the repository</h4>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">git clone https://github.com/97115104/myvoice.git
+cd myvoice</pre>
+                    </div>
+
+                    <h4>3. Start the server</h4>
+                    <div class="code-block">
+                        <button class="btn-copy-code">Copy</button>
+                        <pre class="terminal-block">python3 server.py</pre>
+                    </div>
+                    <p>First run downloads the XTTS model (~1.8GB). Server starts on <code>http://localhost:5123</code></p>
+                    <p>Open the UI at <code>http://localhost:5123/ui</code></p>
+                </div>
+
+                <h4>GPU Acceleration (Recommended)</h4>
+                <p>CPU generation is slow (~30 sec per sentence). For faster generation, install CUDA PyTorch:</p>
+                <div class="code-block">
+                    <button class="btn-copy-code">Copy</button>
+                    <pre class="terminal-block">pip3 install torch torchaudio --index-url https://download.pytorch.org/whl/cu121</pre>
+                </div>
+
+                <h4>4. Open the UI</h4>
+                <ol>
+                    <li>Go to <code>http://localhost:5123/ui</code> in your browser</li>
+                    <li>Upload a voice sample (10-30 sec of clear speech)</li>
+                    <li>Enter text and click <strong>Generate</strong></li>
+                </ol>
+            </div>
+        </div>
+    </div>
 
     <!-- How to Use Modal -->
     <div id="info-modal" class="modal-overlay hidden">
@@ -214,6 +335,7 @@
                 
                 <h4>How it works</h4>
                 <ol>
+                    <li><strong>Start the local server</strong> - Run <code>python server.py</code> to start the TTS server on your machine.</li>
                     <li><strong>Provide a voice sample</strong> - Upload an audio file (MP3, M4A, WAV) or record in your browser. 10-30 seconds of clear speech works best.</li>
                     <li><strong>Enter your text</strong> - Type or paste text, or fetch content from a URL.</li>
                     <li><strong>Generate</strong> - Click generate and wait ~10-30 seconds for the AI to synthesize your audio.</li>
@@ -226,10 +348,11 @@
                     <li>10-30 seconds of continuous speech is ideal</li>
                     <li>WAV format tends to produce best quality</li>
                     <li>Matching the voice sample language to output language gives best results</li>
+                    <li>GPU acceleration significantly speeds up generation</li>
                 </ul>
 
                 <h4>Privacy</h4>
-                <p>Voice samples are processed on Hugging Face Spaces and deleted after generation. No data is stored permanently.</p>
+                <p>When running locally, all voice samples and generated audio stay on your machine — no data leaves your computer.</p>
             </div>
         </div>
     </div>
@@ -285,99 +408,57 @@
                 <p>Create a file named <code>app.py</code> and paste this code:</p>
                 <div class="code-block">
                     <button class="btn-copy-code" data-target="app-py-code">Copy</button>
-                    <pre id="app-py-code">import gradio as gr
+                    <pre id="app-py-code">import os
+os.environ["COQUI_TOS_AGREED"] = "1"
+
 import torch
-from TTS.api import TTS
+import torchaudio
 import tempfile
-import os
-import base64
-import io
-from pydub import AudioSegment
+import gradio as gr
+from TTS.tts.configs.xtts_config import XttsConfig
+from TTS.tts.models.xtts import Xtts
+from TTS.utils.manage import ModelManager
+from TTS.utils.generic_utils import get_user_data_dir
 
-# Initialize TTS with XTTS v2
-device = "cuda" if torch.cuda.is_available() else "cpu"
-tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+# Download and load model
+model_name = "tts_models/multilingual/multi-dataset/xtts_v2"
+ModelManager().download_model(model_name)
+model_path = os.path.join(get_user_data_dir("tts"), model_name.replace("/", "--"))
 
-def convert_to_wav(audio_path):
-    """Convert any audio format to WAV"""
-    audio = AudioSegment.from_file(audio_path)
-    wav_path = tempfile.mktemp(suffix=".wav")
-    audio.export(wav_path, format="wav")
-    return wav_path
+config = XttsConfig()
+config.load_json(os.path.join(model_path, "config.json"))
 
-def generate_speech(text, speaker_audio, language="en", speed=1.0):
-    """Generate speech using voice cloning"""
+model = Xtts.init_from_config(config)
+model.load_checkpoint(config, checkpoint_path=os.path.join(model_path, "model.pth"),
+    vocab_path=os.path.join(model_path, "vocab.json"), eval=True, use_deepspeed=False)
+model = model.to("cuda" if torch.cuda.is_available() else "cpu")
+
+LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl", "cs", "ar", "zh-cn", "ja", "ko"]
+
+def generate(text, speaker_audio, language, speed):
     if not text or not speaker_audio:
         return None
-    
-    try:
-        # Convert to WAV if needed
-        wav_path = convert_to_wav(speaker_audio)
-        
-        # Generate output
-        output_path = tempfile.mktemp(suffix=".wav")
-        tts.tts_to_file(
-            text=text,
-            speaker_wav=wav_path,
-            language=language,
-            file_path=output_path,
-            speed=speed
-        )
-        
-        # Clean up temp WAV
-        if wav_path != speaker_audio:
-            os.remove(wav_path)
-        
-        return output_path
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
+    gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=speaker_audio)
+    out = model.inference(text=text, language=language, gpt_cond_latent=gpt_cond_latent,
+        speaker_embedding=speaker_embedding, speed=speed)
+    output_path = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
+    torchaudio.save(output_path, torch.tensor(out["wav"]).unsqueeze(0), 24000)
+    return output_path
 
-def generate_speech_base64(text, speaker_audio, language="en", speed=1.0):
-    """Generate speech and return as base64 for API use"""
-    output_path = generate_speech(text, speaker_audio, language, speed)
-    if output_path and os.path.exists(output_path):
-        with open(output_path, "rb") as f:
-            audio_base64 = base64.b64encode(f.read()).decode()
-        os.remove(output_path)
-        return {"audio": audio_base64, "format": "wav"}
-    return {"error": "Generation failed"}
-
-# Create Gradio interface
-with gr.Blocks(title="My Voice TTS") as demo:
+with gr.Blocks() as demo:
     gr.Markdown("# My Voice - Voice Cloning TTS")
-    gr.Markdown("Upload a voice sample and enter text to generate speech.")
-    
     with gr.Row():
         with gr.Column():
-            speaker_audio = gr.Audio(
-                label="Voice Sample (10-30s recommended)", 
-                type="filepath"
-            )
-            text_input = gr.Textbox(
-                label="Text to speak", 
-                placeholder="Enter text...",
-                lines=5
-            )
-            with gr.Row():
-                language = gr.Dropdown(
-                    choices=["en", "es", "fr", "de", "it", "pt", "pl", 
-                             "tr", "ru", "nl", "cs", "ar", "zh-cn", "ja", "ko"],
-                    value="en",
-                    label="Language"
-                )
-                speed = gr.Slider(0.5, 2.0, 1.0, step=0.1, label="Speed")
-            generate_btn = gr.Button("Generate Speech", variant="primary")
-        
+            audio_in = gr.Audio(label="Voice Sample", type="filepath")
+            text_in = gr.Textbox(label="Text", lines=3)
+            lang = gr.Dropdown(label="Language", choices=LANGUAGES, value="en")
+            spd = gr.Slider(label="Speed", minimum=0.5, maximum=2.0, value=1.0, step=0.1)
+            btn = gr.Button("Generate", variant="primary")
         with gr.Column():
-            output_audio = gr.Audio(label="Generated Speech", type="filepath")
-    
-    generate_btn.click(
-        generate_speech,
-        inputs=[text_input, speaker_audio, language, speed],
-        outputs=output_audio
-    )
+            audio_out = gr.Audio(label="Output")
+    btn.click(generate, inputs=[text_in, audio_in, lang, spd], outputs=audio_out)
 
+demo.queue()
 demo.launch()</pre>
                 </div>
 
@@ -386,11 +467,10 @@ demo.launch()</pre>
                 <div class="code-block">
                     <button class="btn-copy-code" data-target="requirements-code">Copy</button>
                     <pre id="requirements-code">TTS>=0.22.0
-torch>=2.0.0
-torchaudio>=2.0.0
+torch>=2.0.0,<2.6.0
+torchaudio>=2.0.0,<2.6.0
 gradio==4.44.0
-huggingface_hub<0.24.0
-pydub>=0.25.0</pre>
+huggingface_hub<0.24.0</pre>
                 </div>
 
                 <h4>4. Add README.md</h4>

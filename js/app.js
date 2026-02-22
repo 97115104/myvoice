@@ -2,8 +2,8 @@
  * My Voice - Voice Cloning & Text-to-Speech
  * Frontend Application
  * 
- * Uses Hugging Face Spaces for TTS inference
- * Client-side URL fetching via CORS proxies
+ * Runs locally using a Python TTS server
+ * No data leaves your computer
  */
 
 // CORS Proxies for URL fetching (same as whodoneit)
@@ -20,7 +20,7 @@ const state = {
     isRecording: false,
     mediaRecorder: null,
     audioChunks: [],
-    serverUrl: 'https://x97115104-myvoice.hf.space'
+    serverUrl: 'http://localhost:5123'
 };
 
 // DOM Elements
@@ -136,16 +136,63 @@ function initEventListeners() {
     elements.btnSetup.addEventListener('click', () => showModal('setup-modal'));
     elements.btnCloseSetup.addEventListener('click', () => hideModal('setup-modal'));
     
-    // Copy code buttons in setup modal
+    // Local setup modal
+    const btnLocalHelp = document.getElementById('btn-local-help');
+    const btnCloseLocal = document.getElementById('btn-close-local');
+    if (btnLocalHelp) {
+        btnLocalHelp.addEventListener('click', () => showModal('local-modal'));
+    }
+    if (btnCloseLocal) {
+        btnCloseLocal.addEventListener('click', () => hideModal('local-modal'));
+    }
+    
+    // OS tab switching in local modal
+    document.querySelectorAll('.os-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const os = btn.dataset.os;
+            // Update buttons
+            document.querySelectorAll('.os-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // Update panels
+            document.querySelectorAll('.os-panel').forEach(p => p.classList.remove('active'));
+            document.querySelector(`.os-panel[data-os="${os}"]`)?.classList.add('active');
+        });
+    });
+    
+    // Save settings checkbox
+    const saveSettingsCheckbox = document.getElementById('save-settings');
+    if (saveSettingsCheckbox) {
+        saveSettingsCheckbox.addEventListener('change', () => {
+            if (saveSettingsCheckbox.checked) {
+                saveSettings();
+            } else {
+                localStorage.removeItem('My Voice_settings');
+            }
+        });
+    }
+    
+    // Copy code buttons in setup modal and local modal
     document.querySelectorAll('.btn-copy-code').forEach(btn => {
         btn.addEventListener('click', () => {
+            // Try data-target first, then find adjacent pre
             const targetId = btn.dataset.target;
-            const code = document.getElementById(targetId).textContent;
-            navigator.clipboard.writeText(code).then(() => {
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(() => btn.textContent = originalText, 2000);
-            });
+            let code;
+            if (targetId) {
+                code = document.getElementById(targetId)?.textContent;
+            }
+            if (!code) {
+                // Find pre in same .code-block container
+                const codeBlock = btn.closest('.code-block');
+                const pre = codeBlock?.querySelector('pre');
+                code = pre?.textContent;
+            }
+            if (code) {
+                navigator.clipboard.writeText(code.trim()).then(() => {
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => btn.textContent = originalText, 2000);
+                });
+            }
         });
     });
     
@@ -471,94 +518,137 @@ async function fetchUrlContent() {
     }
 }
 
-// Generate Speech using Hugging Face Spaces API
+// Generate Speech using local TTS server
 async function generateSpeech() {
     if (!state.voiceData || !elements.textInput.value.trim()) {
         return;
     }
     
+    // Preflight check
+    const preflight = await preflightCheck();
+    if (!preflight.ok) {
+        updateProgress(0, preflight.error);
+        return;
+    }
+    
     setGenerating(true);
-    updateProgress(10, 'Connecting to server...');
+    updateProgress(5, 'Connecting to server...');
     
     try {
         const text = elements.textInput.value.trim();
         const language = elements.languageSelect.value;
         const speed = parseFloat(elements.speedSlider.value);
         
-        updateProgress(20, 'Uploading voice sample...');
+        // Estimate chunks and time
+        const estimatedChunks = Math.ceil(text.length / 200);
+        const isLongText = text.length > 500;
+        const gpuAvailable = preflight.gpu;
         
-        // Call Hugging Face Spaces Gradio API
-        const response = await fetch(`${state.serverUrl}/api/predict`, {
+        let progressMsg = 'Sending to TTS server...';
+        if (isLongText && !gpuAvailable) {
+            progressMsg = `Processing ${estimatedChunks} chunks (CPU mode ~${estimatedChunks * 15}s)...`;
+        }
+        updateProgress(10, progressMsg);
+        
+        // Call local /api/tts endpoint
+        const response = await fetch(`${state.serverUrl}/api/tts`, {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                data: [
-                    text,
-                    state.voiceData,
-                    language,
-                    speed
-                ]
+                text: text,
+                voice: state.voiceData,
+                language: language,
+                speed: speed
             })
         });
         
-        updateProgress(50, 'Generating speech...');
+        // Show progress while waiting for response
+        let progressValue = 15;
+        const progressInterval = setInterval(() => {
+            if (progressValue < 85) {
+                progressValue += isLongText ? 1 : 3;
+                const timeHint = isLongText && !gpuAvailable 
+                    ? ' (GPU recommended for long text)' 
+                    : '';
+                updateProgress(progressValue, `Generating speech...${timeHint}`);
+            }
+        }, isLongText ? 2000 : 500);
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server error: ${response.status} - ${errorText}`);
+            clearInterval(progressInterval);
+            const errorData = await response.json().catch(() => null);
+            const errorMsg = errorData?.error || `Server error: ${response.status}`;
+            throw new Error(errorMsg);
         }
         
-        const result = await response.json();
+        clearInterval(progressInterval);
+        updateProgress(90, 'Loading audio...');
         
-        updateProgress(80, 'Processing audio...');
-        
-        if (result.error) {
-            throw new Error(result.error);
-        }
-        
-        // Gradio returns data in result.data array
-        // First element is the audio file path or data
-        if (result.data && result.data[0]) {
-            const audioResult = result.data[0];
-            
-            // If it's a file path from Gradio, fetch it
-            if (typeof audioResult === 'string' && audioResult.startsWith('/file=')) {
-                const audioUrl = `${state.serverUrl}${audioResult}`;
-                const audioResp = await fetch(audioUrl);
-                const audioBlob = await audioResp.blob();
-                state.generatedAudio = URL.createObjectURL(audioBlob);
-            } else if (typeof audioResult === 'object' && audioResult.url) {
-                // Newer Gradio format with URL
-                const audioResp = await fetch(audioResult.url);
-                const audioBlob = await audioResp.blob();
-                state.generatedAudio = URL.createObjectURL(audioBlob);
-            } else if (typeof audioResult === 'string' && audioResult.startsWith('data:')) {
-                // Base64 data URL
-                state.generatedAudio = audioResult;
-            } else {
-                throw new Error('Unexpected response format');
-            }
-        } else {
-            throw new Error('No audio in response');
-        }
+        // Response is the audio file directly
+        const audioBlob = await response.blob();
+        state.generatedAudio = URL.createObjectURL(audioBlob);
         
         updateProgress(100, 'Complete!');
         showOutput();
         
     } catch (err) {
         console.error('Generation error:', err);
-        updateProgress(0, `Error: ${err.message}`);
         
-        // Show helpful message if server is unavailable
         if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-            elements.progressText.textContent = 'Server unavailable. Please check the server URL in settings.';
+            updateProgress(0, 'Cannot connect to server. Make sure the TTS server is running.');
+            elements.progressText.innerHTML = 'Cannot connect to server. <button onclick="document.getElementById(\'local-modal\').classList.remove(\'hidden\')" style="text-decoration:underline;background:none;border:none;color:inherit;cursor:pointer;">Setup Instructions</button>';
+        } else {
+            updateProgress(0, `Error: ${err.message}`);
         }
     } finally {
         setTimeout(() => {
             setGenerating(false);
         }, 1000);
+    }
+}
+
+// Preflight check to verify server is running
+async function preflightCheck() {
+    const base = state.serverUrl.replace(/\/+$/, '');
+    
+    try {
+        const response = await fetch(`${base}/api/health`, { 
+            method: 'GET',
+            signal: AbortSignal.timeout(5000)
+        });
+        
+        if (!response.ok) {
+            return {
+                ok: false,
+                error: 'Server not responding correctly. Check the URL.'
+            };
+        }
+        
+        const data = await response.json();
+        
+        if (!data.model_loaded && data.model_loaded !== undefined) {
+            return {
+                ok: false,
+                error: 'TTS model not loaded. Wait for server to finish loading.'
+            };
+        }
+        
+        return { ok: true, status: data, gpu: data.cuda_available || false };
+        
+    } catch (err) {
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+            return {
+                ok: false,
+                error: 'Server not responding. Make sure the TTS server is running:\n\npython server.py'
+            };
+        }
+        
+        return {
+            ok: false,
+            error: 'Cannot connect to TTS server at ' + base + '.\n\n' +
+                   'Start the server with: python server.py\n' +
+                   'Click "Setup Instructions" in Settings for full guide.'
+        };
     }
 }
 
@@ -676,32 +766,27 @@ async function checkServerStatus() {
     elements.statusText.textContent = 'Checking server...';
     
     try {
-        // Try Gradio's info endpoint
-        const response = await fetch(`${state.serverUrl}/info`, {
+        // Try local TTS server /api/health endpoint
+        const response = await fetch(`${state.serverUrl}/api/health`, {
             method: 'GET',
-            mode: 'cors'
+            signal: AbortSignal.timeout(5000)
         });
         
         if (response.ok) {
-            elements.statusDot.className = 'status-dot online';
-            elements.statusText.textContent = 'Server online';
+            const data = await response.json();
+            if (data.model_loaded === false) {
+                elements.statusDot.className = 'status-dot checking';
+                elements.statusText.textContent = 'Model loading...';
+            } else {
+                elements.statusDot.className = 'status-dot online';
+                elements.statusText.textContent = data.device === 'cuda' ? 'Server online (GPU)' : 'Server online (CPU)';
+            }
         } else {
-            throw new Error('Server not responding');
+            throw new Error('Server error');
         }
     } catch (err) {
-        // Try alternative check - just see if we can reach the space
-        try {
-            const response = await fetch(state.serverUrl, {
-                method: 'HEAD',
-                mode: 'no-cors'
-            });
-            // If we get here, the server exists (though we can't check the response)
-            elements.statusDot.className = 'status-dot online';
-            elements.statusText.textContent = 'Server available';
-        } catch {
-            elements.statusDot.className = 'status-dot offline';
-            elements.statusText.textContent = 'Server offline';
-        }
+        elements.statusDot.className = 'status-dot offline';
+        elements.statusText.textContent = 'Server offline';
     }
 }
 
