@@ -77,13 +77,15 @@ Everything runs locally on your machine:
 - **Backend**: Flask server running on localhost:5123
 - **Frontend**: Static HTML/CSS/JS
 
-## GPU Acceleration
+## GPU Acceleration (Windows/Linux with NVIDIA GPU)
 
-For faster generation, install CUDA PyTorch:
+For faster generation on **NVIDIA GPUs**, install CUDA PyTorch:
 
 ```bash
 pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
+
+> **macOS users**: Apple Silicon (M1/M2/M3/M4) doesn't support CUDA - that's NVIDIA-only. XTTS will run on CPU. Generation takes ~15-30 seconds per chunk but works reliably.
 
 ## API Reference
 

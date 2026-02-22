@@ -54,24 +54,42 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Global TTS model
+# Global TTS model and cache
 tts_model = None
+xtts_model = None  # Lower-level model for advanced control
+speaker_cache = {}  # Cache speaker embeddings
 MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
 
 
 def load_model():
     """Load the XTTS v2 model"""
-    global tts_model
+    global tts_model, xtts_model
     
     logger.info("Loading XTTS v2 model...")
     logger.info("This may take a few minutes on first run (downloading ~2GB model)")
     
-    # Check for GPU
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # Check for GPU - CUDA (NVIDIA) or MPS (Apple Silicon)
+    if torch.cuda.is_available():
+        device = "cuda"
+        logger.info("Using NVIDIA GPU (CUDA)")
+    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
+        # MPS available but XTTS has compatibility issues with MPS
+        # Some operations aren't supported, falling back to CPU for reliability
+        device = "cpu"
+        logger.info("Apple Silicon detected - MPS available but using CPU for XTTS compatibility")
+        logger.info("Note: XTTS v2 has limited MPS support. CPU is more reliable.")
+    else:
+        device = "cpu"
+        logger.warning("Running on CPU - generation will be slow (~15-30s per sentence)")
+        logger.warning("For faster generation on NVIDIA GPU:")
+        logger.warning("  pip3 install torch torchaudio --index-url https://download.pytorch.org/whl/cu121")
+    
     logger.info(f"Using device: {device}")
     
     try:
         tts_model = TTS(MODEL_NAME).to(device)
+        # Access underlying XTTS model for advanced control
+        xtts_model = tts_model.synthesizer.tts_model
         logger.info("Model loaded successfully!")
         return True
     except Exception as e:
@@ -192,10 +210,11 @@ def extract_text_from_url(url):
         raise
 
 
-def split_text_into_chunks(text, max_chars=200):
+def split_text_into_chunks(text, max_chars=300):
     """Split text into sentence chunks for XTTS processing.
     
-    XTTS v2 works best with shorter text segments (under 250 chars).
+    XTTS v2 works best with shorter text segments (under 400 chars).
+    Using 300 chars for better prosody while staying safe.
     This function splits on sentence boundaries for natural speech.
     """
     # Split on sentence endings
@@ -249,17 +268,26 @@ def split_text_into_chunks(text, max_chars=200):
     return chunks
 
 
-def concatenate_audio_files(audio_paths, output_path):
-    """Concatenate multiple audio files into one using pydub"""
+def concatenate_audio_files(audio_paths, output_path, crossfade_ms=50):
+    """Concatenate multiple audio files with crossfade for smoother transitions"""
     from pydub import AudioSegment
     
-    combined = AudioSegment.empty()
+    if not audio_paths:
+        return None
     
-    for path in audio_paths:
+    # Start with first audio
+    combined = AudioSegment.from_wav(audio_paths[0])
+    
+    # Add remaining with crossfade
+    for path in audio_paths[1:]:
         try:
             audio = AudioSegment.from_wav(path)
-            # Add small pause between chunks for natural speech
-            combined += audio + AudioSegment.silent(duration=150)
+            # Use crossfade for smoother transitions between chunks
+            if crossfade_ms > 0 and len(combined) > crossfade_ms and len(audio) > crossfade_ms:
+                combined = combined.append(audio, crossfade=crossfade_ms)
+            else:
+                # Fallback: small silence between chunks
+                combined += AudioSegment.silent(duration=100) + audio
         except Exception as e:
             logger.warning(f"Failed to load audio chunk {path}: {e}")
             continue
@@ -267,6 +295,29 @@ def concatenate_audio_files(audio_paths, output_path):
     # Export combined audio
     combined.export(output_path, format='wav')
     return output_path
+
+
+def get_speaker_embedding(wav_path, cache_key=None):
+    """Get speaker embedding from audio file, with optional caching"""
+    global speaker_cache, xtts_model
+    
+    if cache_key and cache_key in speaker_cache:
+        logger.info(f"Using cached speaker embedding")
+        return speaker_cache[cache_key]
+    
+    if xtts_model is None:
+        return None, None
+    
+    # Generate speaker embedding using XTTS
+    gpt_cond_latent, speaker_embedding = xtts_model.get_conditioning_latents(
+        audio_path=wav_path
+    )
+    
+    if cache_key:
+        speaker_cache[cache_key] = (gpt_cond_latent, speaker_embedding)
+        logger.info(f"Cached speaker embedding for future use")
+    
+    return gpt_cond_latent, speaker_embedding
 
 
 # API Routes

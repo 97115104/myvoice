@@ -301,12 +301,13 @@ cd myvoice</pre>
                     <p>Open the UI at <code>http://localhost:5123/ui</code></p>
                 </div>
 
-                <h4>GPU Acceleration (Recommended)</h4>
-                <p>CPU generation is slow (~30 sec per sentence). For faster generation, install CUDA PyTorch:</p>
+                <h4>GPU Acceleration (Windows/Linux with NVIDIA GPU)</h4>
+                <p>CPU generation is slow (~30 sec per sentence). If you have an NVIDIA GPU:</p>
                 <div class="code-block">
                     <button class="btn-copy-code">Copy</button>
                     <pre class="terminal-block">pip3 install torch torchaudio --index-url https://download.pytorch.org/whl/cu121</pre>
                 </div>
+                <p class="alert-box"><strong>macOS users:</strong> Apple Silicon (M1/M2/M3) doesn't support CUDA. XTTS runs on CPU which is slower but reliable. Generation takes ~15-30 seconds per sentence.</p>
 
                 <h4>4. Open the UI</h4>
                 <ol>
