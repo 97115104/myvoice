@@ -70,6 +70,35 @@ h4 {
     font-size: 14px;
 }
 
+/* Navigation */
+.nav-bar {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.nav-link {
+    color: #888;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.nav-link:hover {
+    color: #333;
+    background: #f0f0f0;
+}
+
+.nav-link.active {
+    color: #27ae60;
+    background: rgba(39, 174, 96, 0.1);
+}
+
 /* How to use button */
 .how-to-use-row {
     text-align: center;

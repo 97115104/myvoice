@@ -176,7 +176,7 @@ def convert_to_wav(input_path):
 
 
 def extract_text_from_url(url):
-    """Extract readable text from a URL"""
+    """Extract readable text and title from a URL, preserving paragraph structure"""
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
@@ -186,24 +186,84 @@ def extract_text_from_url(url):
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Remove script and style elements
-        for element in soup(['script', 'style', 'nav', 'footer', 'header', 'aside']):
-            element.decompose()
+        # Extract title
+        title = ''
+        title_tag = soup.find('title')
+        if title_tag:
+            title = title_tag.get_text(strip=True)
+        # Also try h1 if title is generic or missing
+        h1_tag = soup.find('h1')
+        if h1_tag:
+            h1_text = h1_tag.get_text(strip=True)
+            if not title or len(title) > 100 or '|' in title:
+                title = h1_text
+        
+        # Remove unwanted elements
+        remove_selectors = [
+            'script', 'style', 'noscript', 'nav', 'header', 'footer', 
+            'aside', 'iframe', 'form', 'button'
+        ]
+        for selector in remove_selectors:
+            for element in soup.select(selector):
+                element.decompose()
+        
+        # Also remove by class/id patterns
+        for pattern in ['.comments', '#comments', '.sidebar', '.navigation', '.menu', 
+                        '.social-share', '.related-posts', '.advertisement', '.ad',
+                        '.cookie-notice', '.popup', '.modal', '.newsletter', '.subscribe']:
+            for element in soup.select(pattern):
+                element.decompose()
         
         # Try to find main content
-        main_content = soup.find('article') or soup.find('main') or soup.find('body')
+        content_selectors = [
+            'article.post-content', 'article .post-content', '.post-content',
+            '.entry-content', '.article-content', '.content-body', '.blog-post-content',
+            '.body.markup', '.post-content-final', 'article', '[role="main"]',
+            'main', '.main-content', '#main-content', '.content', '#content', 'body'
+        ]
         
-        if main_content:
-            # Get text and clean it
-            text = main_content.get_text(separator=' ', strip=True)
-            
-            # Clean up whitespace
-            text = re.sub(r'\s+', ' ', text)
-            text = text.strip()
-            
-            return text
+        main_content = None
+        for selector in content_selectors:
+            el = soup.select_one(selector)
+            if el and len(el.get_text(strip=True)) > 200:
+                main_content = el
+                break
         
-        return soup.get_text(separator=' ', strip=True)
+        if not main_content:
+            main_content = soup.body or soup
+        
+        # Extract text, preserving paragraph structure
+        blocks = []
+        block_tags = main_content.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'pre'])
+        
+        if block_tags:
+            for el in block_tags:
+                text = el.get_text(strip=True)
+                if text:
+                    tag_name = el.name
+                    if tag_name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                        blocks.append('\n' + text + '\n')
+                    elif tag_name == 'blockquote':
+                        blocks.append('> ' + text)
+                    elif tag_name == 'pre':
+                        blocks.append('```\n' + text + '\n```')
+                    elif tag_name == 'li':
+                        blocks.append('• ' + text)
+                    else:
+                        blocks.append(text)
+        else:
+            # Fallback: get all text
+            blocks.append(main_content.get_text(strip=True))
+        
+        # Join with double newlines for paragraph separation
+        content = '\n\n'.join(blocks)
+        
+        # Clean up excessive whitespace
+        content = re.sub(r'\n{3,}', '\n\n', content)
+        content = re.sub(r'[ \t]+', ' ', content)
+        content = content.strip()
+        
+        return content, title
         
     except Exception as e:
         logger.error(f"URL extraction error: {e}")
@@ -569,14 +629,15 @@ def fetch_url():
         if not parsed.scheme or not parsed.netloc:
             return jsonify({'error': 'Invalid URL'}), 400
         
-        text = extract_text_from_url(url)
+        text, title = extract_text_from_url(url)
         
         # Limit text length
-        if len(text) > 10000:
-            text = text[:10000] + '...'
+        if len(text) > 50000:
+            text = text[:50000] + '...'
         
         return jsonify({
             'text': text,
+            'title': title,
             'url': url,
             'length': len(text)
         })
@@ -596,6 +657,121 @@ def index():
 def serve_ui():
     """Serve the frontend UI"""
     return send_file('index.html')
+
+
+@app.route('/batch', methods=['GET'])
+def serve_batch():
+    """Serve the batch generation UI"""
+    return send_file('batch.html')
+
+
+@app.route('/api/batch-tts', methods=['POST'])
+def batch_text_to_speech():
+    """Generate speech and save to specified path
+    
+    Request: multipart/form-data with:
+    - voice: audio file
+    - text: text to speak
+    - language: language code
+    - speed: speech speed
+    - output_path: where to save the file
+    """
+    if tts_model is None:
+        return jsonify({'error': 'Model not loaded'}), 503
+    
+    try:
+        # Get form data
+        text = request.form.get('text', '').strip()
+        language = request.form.get('language', 'en')
+        speed = float(request.form.get('speed', 1.0))
+        output_path = request.form.get('output_path', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        if not output_path:
+            return jsonify({'error': 'No output path provided'}), 400
+        
+        # Get voice file
+        if 'voice' not in request.files:
+            return jsonify({'error': 'No voice file provided'}), 400
+        
+        voice_file = request.files['voice']
+        
+        # Save voice to temp file
+        voice_path = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+        voice_file.save(voice_path)
+        
+        # Convert to WAV if needed
+        wav_path = convert_to_wav(voice_path)
+        
+        logger.info(f"Batch TTS: {len(text)} chars, saving to {output_path}")
+        
+        # Ensure output directory exists
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        
+        # Split text into chunks
+        chunks = split_text_into_chunks(text, max_chars=200)
+        total_chunks = len(chunks)
+        logger.info(f"Split into {total_chunks} chunks for processing")
+        
+        # Generate audio for each chunk
+        chunk_paths = []
+        for i, chunk in enumerate(chunks):
+            logger.info(f"Processing chunk {i+1}/{total_chunks}")
+            
+            chunk_output = tempfile.NamedTemporaryFile(suffix='.wav', delete=False).name
+            
+            try:
+                tts_model.tts_to_file(
+                    text=chunk,
+                    speaker_wav=wav_path,
+                    language=language,
+                    file_path=chunk_output,
+                    speed=speed
+                )
+                chunk_paths.append(chunk_output)
+            except Exception as e:
+                logger.error(f"Failed to generate chunk {i+1}: {e}")
+                continue
+        
+        if not chunk_paths:
+            return jsonify({'error': 'Failed to generate any audio'}), 500
+        
+        # Concatenate all chunks
+        if len(chunk_paths) == 1:
+            # Just copy the single chunk to output
+            import shutil
+            shutil.copy(chunk_paths[0], output_path)
+        else:
+            concatenate_audio_files(chunk_paths, output_path)
+        
+        # Clean up temp files
+        for path in chunk_paths:
+            try:
+                os.unlink(path)
+            except:
+                pass
+        try:
+            os.unlink(voice_path)
+            if wav_path != voice_path:
+                os.unlink(wav_path)
+        except:
+            pass
+        
+        logger.info(f"Batch TTS complete: {output_path}")
+        
+        return jsonify({
+            'success': True,
+            'output_path': output_path,
+            'chunks': total_chunks
+        })
+        
+    except Exception as e:
+        logger.error(f"Batch TTS error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/css/<path:filename>')

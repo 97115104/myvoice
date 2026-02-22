@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Multiple - My Voice</title>
+    <meta name="description" content="Batch generate voice audio from multiple URLs">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2327ae60'/><text x='50' y='68' font-family='Arial,sans-serif' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>MV</text></svg>">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .queue-container {
+            margin: 1.5rem 0;
+        }
+        .queue-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 1rem;
+            align-items: center;
+            padding: 1rem;
+            background: #fff;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e5e5e5;
+        }
+        .queue-item.processing {
+            border-color: #27ae60;
+            background: rgba(39, 174, 96, 0.05);
+        }
+        .queue-item.completed {
+            border-color: #27ae60;
+            opacity: 0.7;
+        }
+        .queue-item.error {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.05);
+        }
+        .queue-input {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fff;
+            color: #333;
+            font-size: 14px;
+        }
+        .queue-input:focus {
+            outline: none;
+            border-color: #27ae60;
+        }
+        .btn-remove {
+            padding: 0.5rem;
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn-remove:hover {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+        }
+        .queue-status {
+            font-size: 12px;
+            color: #888;
+            grid-column: 1 / -1;
+            margin-top: 0.5rem;
+        }
+        .queue-status.error {
+            color: #e74c3c;
+        }
+        .queue-status.success {
+            color: #27ae60;
+        }
+        .add-row {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .voice-section {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border: 1px solid #e5e5e5;
+        }
+        .voice-section h3 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+        .progress-overall {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e5e5e5;
+        }
+        .progress-bar-container {
+            height: 8px;
+            background: #e5e5e5;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #27ae60;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #666;
+        }
+        .output-section {
+            margin-bottom: 1.5rem;
+        }
+        .output-section label {
+            display: block;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .output-section input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #fff;
+            font-family: monospace;
+        }
+        .output-section input:focus {
+            outline: none;
+            border-color: #27ae60;
+        }
+        .empty-queue {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+            background: #fff;
+            border: 2px dashed #e5e5e5;
+            border-radius: 8px;
+        }
+        .generate-controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: #219a52;
+        }
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        .btn-secondary:hover {
+            background: #e5e5e5;
+        }
+        .btn-large {
+            padding: 1rem 2rem;
+            font-size: 16px;
+        }
+        .settings-row {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .setting-item {
+            flex: 1;
+            min-width: 150px;
+        }
+        .setting-item label {
+            display: block;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .select-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #fff;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        @media (max-width: 600px) {
+            .queue-item {
+                grid-template-columns: 1fr;
+            }
+            .add-row {
+                flex-direction: column;
+            }
+            .generate-controls {
+                flex-direction: column;
+            }
+        }
+        /* Modal - Centered overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+        }
+        .modal-overlay.visible {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-box {
+            background: #fff;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 700px;
+            max-height: 85vh;
+            margin: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .modal-box-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e5e5;
+            background: #fafafa;
+        }
+        .modal-box-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        .modal-close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #888;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+        .modal-close-btn:hover {
+            color: #333;
+            background: #eee;
+        }
+        .modal-box-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .modal-box-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 16px 20px;
+            border-top: 1px solid #e5e5e5;
+            background: #fafafa;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #27ae60;
+        }
+        /* Modal textarea - matches single page */
+        .modal-box-body #preview-content {
+            width: 100%;
+            min-height: 200px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+        }
+        .modal-box-body #preview-content:focus {
+            outline: none;
+            border-color: #999;
+        }
+        .modal-box-body .char-count {
+            text-align: right;
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+        .content-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ddd;
+            border-top-color: #27ae60;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>My Voice</h1>
+        <p class="subtitle">Batch generate audio from multiple URLs</p>
+
+        <nav class="nav-bar">
+            <a href="/ui" class="nav-link">Single Generation</a>
+            <a href="/batch" class="nav-link active">Generate Multiple</a>
+        </nav>
+
+        <!-- Voice Sample Section -->
+        <section class="voice-section">
+            <h3>Voice Sample</h3>
+            <p class="section-hint">Upload the voice to use for all generations</p>
+            
+            <div class="voice-input-options">
+                <div class="option-card">
+                    <label for="voice-file" class="btn-upload">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <span>Upload Audio File</span>
+                        <input type="file" id="voice-file" accept="audio/*" hidden>
+                    </label>
+                    <span id="file-name" class="file-name">No file selected</span>
+                </div>
+            </div>
+            
+            <div id="audio-preview" class="audio-preview hidden">
+                <audio id="voice-audio" controls></audio>
+                <button id="btn-clear-audio" class="btn-clear">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Clear
+                </button>
+            </div>
+        </section>
+
+        <!-- Output Path -->
+        <div class="output-section">
+            <label for="output-path">Output Directory</label>
+            <input type="text" id="output-path" value="/Users/x97115104/Desktop/blog audio/batch" placeholder="/path/to/save/files">
+        </div>
+
+        <!-- Queue Section -->
+        <section class="section">
+            <h3>URL Queue</h3>
+            <p class="section-hint">Add URLs to fetch and generate audio for</p>
+            
+            <div id="queue-container" class="queue-container">
+                <!-- Queue items will be added here -->
+            </div>
+
+            <div class="add-row">
+                <input type="url" id="new-url" class="queue-input" style="flex: 2;" placeholder="https://example.com/blog-post">
+                <button id="btn-preview" class="btn btn-secondary">Preview & Add</button>
+            </div>
+        </section>
+
+        <!-- Progress -->
+        <div id="progress-overall" class="progress-overall hidden">
+            <div class="progress-text">
+                <span id="progress-status">Processing...</span>
+                <span id="progress-count">0/0</span>
+            </div>
+            <div class="progress-bar-container">
+                <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="generate-controls">
+            <button id="btn-generate-all" class="btn btn-primary btn-large" disabled>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Generate All
+            </button>
+            <button id="btn-clear-queue" class="btn btn-secondary">Clear Queue</button>
+        </div>
+
+        <!-- Settings -->
+        <section class="section" style="margin-top: 2rem;">
+            <h3>Settings</h3>
+            <div class="settings-row">
+                <div class="setting-item">
+                    <label for="language">Language</label>
+                    <select id="language" class="select-input">
+                        <option value="en" selected>English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="pl">Polish</option>
+                        <option value="tr">Turkish</option>
+                        <option value="ru">Russian</option>
+                        <option value="nl">Dutch</option>
+                        <option value="cs">Czech</option>
+                        <option value="ar">Arabic</option>
+                        <option value="zh-cn">Chinese</option>
+                        <option value="ja">Japanese</option>
+                        <option value="hu">Hungarian</option>
+                        <option value="ko">Korean</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label for="speed">Speed: <span id="speed-value">1.0x</span></label>
+                    <input type="range" id="speed" min="0.5" max="2" step="0.1" value="1">
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-box-header">
+                <h3>Add to Queue</h3>
+                <button id="btn-close-preview" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-box-body">
+                <div class="form-group">
+                    <label for="preview-title">Filename</label>
+                    <input type="text" id="preview-title" class="form-input" placeholder="Enter filename for audio">
+                </div>
+                
+                <div class="form-group">
+                    <label for="preview-content">Content</label>
+                    <textarea id="preview-content" placeholder="Text content to generate audio from..."></textarea>
+                    <div class="char-count"><span id="preview-chars">0</span> characters</div>
+                </div>
+            </div>
+            <div class="modal-box-footer">
+                <button id="btn-cancel-preview" class="btn btn-secondary">Cancel</button>
+                <button id="btn-confirm-add" class="btn btn-primary">Add to Queue</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/batch.js"></script>
+</body>
+</html>
