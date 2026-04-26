@@ -45,8 +45,7 @@ tmp/
 *.log
 
 # Model cache (can be large)
-# Uncomment if you don't want to track model downloads
-# .cache/
+.cache/
 
 # Generated audio (temporary)
 generated/
