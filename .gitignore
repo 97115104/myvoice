@@ -50,6 +50,3 @@ tmp/
 
 # Generated audio (temporary)
 generated/
-
-# Cache because of size
-*.cache/
